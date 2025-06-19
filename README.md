@@ -71,7 +71,7 @@ chmod +x perform-chroot.sh
 sudo ./perform-chroot.sh
 ```
 
-## 🧪 Configurations Testées
+## Configurations Testées
 
 | Système de Fichiers | Non Chiffré | LUKS |
 |-------------------|-------------|------|
@@ -222,7 +222,7 @@ Avant de soumettre, assurez-vous que :
 
 Ce projet est sous licence GPL v3. Voir le fichier [LICENSE](LICENSE) pour plus de détails.
 
-## 🙏 Remerciements
+## Remerciements
 
 - **Arch Linux** pour l'excellente distribution
 - **Communauté Btrfs** pour la documentation des sous-volumes
