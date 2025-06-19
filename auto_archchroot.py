@@ -686,3 +686,60 @@ class ScriptGenerator:
             "# Exécution du script principal",
             "main \"$@\""
         ])
+
+
+def read_config(config_path="/etc/auto-archchroot/config.conf"):
+    """Lit le fichier de configuration"""
+    config = configparser.ConfigParser()
+    try:
+        config.read(config_path)
+        return config
+    except Exception as e:
+        logger.error(f"Erreur lors de la lecture de la configuration: {e}")
+        return None
+
+def main():
+    """Fonction principale"""
+    try:
+        logger.info("Démarrage de l'analyseur système auto-archchroot")
+        
+        config = read_config()
+        output_path = "/home/perform-chroot.sh" 
+        
+        if config and 'general' in config and 'output_script_path' in config['general']:
+            output_path = config['general']['output_script_path']
+            logger.info(f"Utilisation du chemin de sortie configuré: {output_path}")
+        
+        if os.geteuid() != 0:
+            logger.error("Ce script doit être exécuté en tant que root")
+            sys.exit(1)
+        
+        analyzer = SystemAnalyzer()
+        mount_points = analyzer.parse_fstab()
+        
+        if not mount_points:
+            logger.error("Aucun point de montage valide trouvé dans fstab")
+            sys.exit(1)
+        
+        logger.info(f"Trouvé {len(mount_points)} points de montage à traiter")
+        
+        generator = ScriptGenerator(mount_points)
+        
+        output_dir = os.path.dirname(output_path)
+        os.makedirs(output_dir, exist_ok=True)
+        
+        generator.generate_script(output_path)
+        
+        logger.info(f"Script {output_path} généré avec succès")
+        logger.info(f"Utilisation: sudo {output_path}")
+        
+        sys.exit(0)
+        
+    except Exception as e:
+        logger.error(f"Erreur fatale: {e}")
+        logging.shutdown()
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()
+        
