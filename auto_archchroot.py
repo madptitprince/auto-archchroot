@@ -378,3 +378,311 @@ class SystemAnalyzer:
             return order_map[mount_point]
         #for custom mount points, heuristic on depth
         return 30 + len(mount_point.split('/'))
+
+class ScriptGenerator:
+    """Génère le script perform-chroot.sh"""
+    def __init__(self, mount_points: List[MountPoint]):
+        self.mount_points = mount_points
+        self.script_lines = []
+    
+    def generate_script(self, output_path: str = "/usr/local/bin/perform-chroot.sh"):
+        """Génère le script complet"""
+        self.script_lines = []        
+        self._add_header()        
+        self._add_utility_functions()    
+        self._add_luks_handling()  
+        self._add_filesystem_mounting()    
+        self._add_pseudo_filesystems()       
+        self._add_chroot_execution()
+        self._add_cleanup()
+
+        try:
+            with open(output_path, 'w') as f:
+                f.write('\n'.join(self.script_lines))
+            
+            os.chmod(output_path, 0o755)
+            logger.info(f"Script généré avec succès: {output_path}")
+            
+        except Exception as e:
+            logger.error(f"Erreur lors de l'écriture du script: {e}")
+            raise
+    
+    def _add_header(self):
+        """Ajoute l'en-tête du script"""
+        self.script_lines.extend([
+            "#!/bin/bash",
+            "# Généré automatiquement par auto-archchroot",
+            f"# Date de génération: {subprocess.run(['date'], capture_output=True, text=True).stdout.strip()}",
+            "",
+            "set -euo pipefail",
+            "",
+            "# Couleurs pour les messages",
+            'RED="\\033[31m"',
+            'GREEN="\\033[32m"',
+            'YELLOW="\\033[33m"',
+            'BLUE="\\033[34m"',
+            'RESET="\\033[0m"',
+            "",
+            "# Point de montage de base",
+            "MOUNT_ROOT=\"/mnt\"",
+            "",
+            "# Vérification des privilèges root",
+            "if [[ $EUID -ne 0 ]]; then",
+            '    echo -e "${RED}Ce script doit être exécuté en tant que root${RESET}"',
+            "    exit 1",
+            "fi",
+            ""
+        ])
+    
+    def _add_utility_functions(self):
+        """Ajoute les fonctions utilitaires"""
+        self.script_lines.extend([
+            "# Fonctions utilitaires",
+            "log_info() {",
+            '    echo -e "${BLUE}[INFO]${RESET} $1"',
+            "}",
+            "",
+            "log_success() {",
+            '    echo -e "${GREEN}[SUCCESS]${RESET} $1"',
+            "}",
+            "",
+            "log_warning() {",
+            '    echo -e "${YELLOW}[WARNING]${RESET} $1"',
+            "}",
+            "",
+            "log_error() {",
+            '    echo -e "${RED}[ERROR]${RESET} $1"',
+            "}",
+            "",
+            "check_device_exists() {",
+            "    local device=\"$1\"",
+            "    if [[ ! -e \"$device\" ]]; then",
+            '        log_error "Périphérique non trouvé: $device"',
+            "        return 1",
+            "    fi",
+            "    return 0",
+            "}",
+            "",
+            "create_mount_point() {",
+            "    local mount_point=\"$1\"",
+            "    if [[ ! -d \"$mount_point\" ]]; then",
+            "        mkdir -p \"$mount_point\"",
+            '        log_info "Point de montage créé: $mount_point"',
+            "    fi",
+            "}",
+            ""
+        ])
+    
+    def _add_luks_handling(self):
+        """Ajoute la gestion des périphériques LUKS"""
+        luks_devices = [mp for mp in self.mount_points if mp.is_luks]
+        
+        if not luks_devices:
+            return
+        
+        self.script_lines.extend([
+            "# Gestion des périphériques LUKS",
+            "unlock_luks_devices() {",
+            "    log_info \"Déverrouillage des périphériques LUKS...\"",
+            ""
+        ])
+        
+        for mp in luks_devices:
+            luks_name = f"luks_{mp.uuid[:8]}" if mp.uuid else "luks_device"
+            self.script_lines.extend([
+                f"    # Déverrouillage de {mp.luks_device}",
+                f"    if ! cryptsetup status {luks_name} >/dev/null 2>&1; then",
+                f"        log_info \"Déverrouillage de {mp.luks_device}...\"",
+                f"        cryptsetup open {mp.luks_device} {luks_name}",
+                f"        log_success \"Périphérique LUKS déverrouillé: {luks_name}\"",
+                f"    else",
+                f"        log_info \"Périphérique LUKS déjà déverrouillé: {luks_name}\"",
+                f"    fi",
+                ""
+            ])
+        
+        self.script_lines.extend([
+            "}",
+            ""
+        ])
+    
+    def _add_filesystem_mounting(self):
+        """Ajoute le montage des systèmes de fichiers"""
+        self.script_lines.extend([
+            "# Montage des systèmes de fichiers",
+            "mount_filesystems() {",
+            "    log_info \"Montage des systèmes de fichiers...\"",
+            ""
+        ])
+        
+        for mp in self.mount_points:
+            mount_target = f"$MOUNT_ROOT{mp.mount_point}"
+            
+            if mp.is_luks:
+                luks_name = f"luks_{mp.uuid[:8]}" if mp.uuid else "luks_device"
+                source_device = f"/dev/mapper/{luks_name}"
+            else:
+                source_device = mp.device
+            
+            self.script_lines.extend([
+                f"    # Montage de {mp.mount_point}",
+                f"    check_device_exists \"{source_device}\"",
+                f"    create_mount_point \"{mount_target}\"",
+                ""
+            ])
+            
+            mount_cmd = f"mount"
+            
+            mount_options = []
+            if mp.btrfs_subvol:
+                mount_options.append(f"subvol={mp.btrfs_subvol}")
+            
+            for opt in mp.options:
+                if opt not in ['defaults', 'rw', 'auto', 'user', 'exec', 'suid']:
+                    if not opt.startswith('subvol='): 
+                        mount_options.append(opt)
+            
+            if mount_options:
+                mount_cmd += f" -o {','.join(mount_options)}"
+            
+            mount_cmd += f" \"{source_device}\" \"{mount_target}\""
+            
+            self.script_lines.extend([
+                f"    if ! mountpoint -q \"{mount_target}\"; then",
+                f"        {mount_cmd}",
+                f"        log_success \"Monté: {mp.mount_point}\"",
+                f"    else",
+                f"        log_info \"Déjà monté: {mp.mount_point}\"",
+                f"    fi",
+                ""
+            ])
+        
+        self.script_lines.extend([
+            "}",
+            ""
+        ])
+    
+    def _add_pseudo_filesystems(self):
+        """Ajoute le montage des pseudo-systèmes de fichiers"""
+        pseudo_fs = [
+            ("/dev", "/dev"),
+            ("/proc", "/proc"),
+            ("/sys", "/sys"),
+            ("/run", "/run")
+        ]
+        
+        self.script_lines.extend([
+            "# Montage des pseudo-systèmes de fichiers",
+            "mount_pseudo_filesystems() {",
+            "    log_info \"Montage des pseudo-systèmes de fichiers...\"",
+            ""
+        ])
+        
+        for source, target in pseudo_fs:
+            mount_target = f"$MOUNT_ROOT{target}"
+            self.script_lines.extend([
+                f"    create_mount_point \"{mount_target}\"",
+                f"    if ! mountpoint -q \"{mount_target}\"; then",
+                f"        mount --bind \"{source}\" \"{mount_target}\"",
+                f"        log_success \"Pseudo-FS monté: {target}\"",
+                f"    fi"
+            ])
+        
+        self.script_lines.extend([
+            "",
+            "    # Montage spécial pour /dev/pts si nécessaire",
+            "    if [[ -d \"$MOUNT_ROOT/dev/pts\" ]] && ! mountpoint -q \"$MOUNT_ROOT/dev/pts\"; then",
+            "        mount -t devpts devpts \"$MOUNT_ROOT/dev/pts\"",
+            "    fi",
+            "",
+            "}",
+            ""
+        ])
+    
+    def _add_chroot_execution(self):
+        """Ajoute l'exécution du chroot"""
+        self.script_lines.extend([
+            "# Exécution du chroot",
+            "execute_chroot() {",
+            "    log_info \"Entrée dans l'environnement chroot...\"",
+            "    log_info \"Vous êtes maintenant dans l'environnement chroot du système installé.\"",
+            "    log_info \"Pour sortir, tapez 'exit' ou appuyez sur Ctrl+D\"",
+            "    ",
+            "    # Copie le resolv.conf pour la résolution DNS",
+            "    if [[ -f \"/etc/resolv.conf\" ]]; then",
+            "        cp \"/etc/resolv.conf\" \"$MOUNT_ROOT/etc/resolv.conf\"",
+            "    fi",
+            "    ",
+            "    # Entre dans le chroot",
+            "    arch-chroot \"$MOUNT_ROOT\"",
+            "    ",
+            "    log_success \"Sortie du chroot\"",
+            "}",
+            ""
+        ])
+    
+    def _add_cleanup(self):
+        """Ajoute les fonctions de nettoyage"""
+        self.script_lines.extend([
+            "# Fonction de nettoyage",
+            "cleanup() {",
+            "    log_info \"Nettoyage en cours...\"",
+            "    ",
+            "    # Démonte les pseudo-systèmes de fichiers",
+            "    for mount_point in \"/dev/pts\" \"/dev\" \"/proc\" \"/sys\" \"/run\"; do",
+            "        full_path=\"$MOUNT_ROOT$mount_point\"",
+            "        if mountpoint -q \"$full_path\"; then",
+            "            umount \"$full_path\" 2>/dev/null || true",
+            "        fi",
+            "    done",
+            "    ",
+            "    # Démonte les systèmes de fichiers dans l'ordre inverse",
+        ])
+        
+        for mp in reversed(self.mount_points):
+            mount_target = f"$MOUNT_ROOT{mp.mount_point}"
+            self.script_lines.extend([
+                f"    if mountpoint -q \"{mount_target}\"; then",
+                f"        umount \"{mount_target}\" 2>/dev/null || true",
+                f"        log_info \"Démonté: {mp.mount_point}\"",
+                f"    fi"
+            ])
+        
+        luks_devices = [mp for mp in self.mount_points if mp.is_luks]
+        if luks_devices:
+            self.script_lines.append("\n    # Fermeture des périphériques LUKS")
+            for mp in luks_devices:
+                luks_name = f"luks_{mp.uuid[:8]}" if mp.uuid else "luks_device"
+                self.script_lines.extend([
+                    f"    if cryptsetup status {luks_name} >/dev/null 2>&1; then",
+                    f"        cryptsetup close {luks_name} 2>/dev/null || true",
+                    f"        log_info \"Fermé: {luks_name}\"",
+                    f"    fi"
+                ])
+        
+        self.script_lines.extend([
+            "    ",
+            "    log_success \"Nettoyage terminé\"",
+            "}",
+            "",
+            "# Gestion des signaux pour le nettoyage",
+            "trap cleanup EXIT INT TERM",
+            "",
+            "# Fonction principale",
+            "main() {",
+            "    log_info \"=== Démarrage de l'auto arch-chroot ===\"",
+            "    ",
+        ])
+        
+        if any(mp.is_luks for mp in self.mount_points):
+            self.script_lines.append("    unlock_luks_devices")
+        
+        self.script_lines.extend([
+            "    mount_filesystems",
+            "    mount_pseudo_filesystems",
+            "    execute_chroot",
+            "}",
+            "",
+            "# Exécution du script principal",
+            "main \"$@\""
+        ])
