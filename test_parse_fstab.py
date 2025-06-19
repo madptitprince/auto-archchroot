@@ -223,7 +223,7 @@ def test_parse_fstab_ext4_plaintxt(mocker):
     )
     
     mount_points= [mp1, mp2]
-    assert sys_analyser.parse_fstab("fstab1") == mount_points
+    assert sys_analyser.parse_fstab("fstab_samples/fstab1") == mount_points
 
 
 def test_parse_fstab_btrfs_plaintext(mocker):
@@ -243,7 +243,7 @@ def test_parse_fstab_btrfs_plaintext(mocker):
     )
 
     mount_points= [mp]
-    assert sys_analyser.parse_fstab("fstab3") == mount_points
+    assert sys_analyser.parse_fstab("fstab_samples/fstab3") == mount_points
 
 
 
@@ -273,7 +273,7 @@ def test_parse_fstab_ext4_LUKS(mocker):
     )
 
     mount_points = [mp]
-#    assert sys_analyser.parse_fstab("fstab2") == mount_points
+#    assert sys_analyser.parse_fstab("fstab_samples/fstab2") == mount_points
 
 def test_parse_fstab_btrfs_LUKS(mocker):
     """Tester la méthode parse_fstab avec LUKS et BTRFS - fstab4"""
@@ -294,4 +294,4 @@ def test_parse_fstab_btrfs_LUKS(mocker):
     
 
     mount_points= [mp]
-#    assert sys_analyser.parse_fstab("fstab4") == mount_points
+#    assert sys_analyser.parse_fstab("fstab_samples/fstab4") == mount_points
