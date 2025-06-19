@@ -1,5 +1,7 @@
 # Auto Arch-Chroot
 
+**STI 3A - 2025 (Ali Terro, Amadou DIACK, Ahmad SAAD, Amer El Jibbawe)**
+
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Arch Linux](https://img.shields.io/badge/Arch%20Linux-1793D1?logo=arch-linux&logoColor=fff)](https://aur.archlinux.org/packages/auto-archchroot)
 
