@@ -5,27 +5,27 @@
 
 Génère automatiquement un script `perform-chroot.sh` intelligent basé sur la configuration actuelle de votre système Arch Linux. Ce script permet de reproduire facilement le processus d'`arch-chroot` depuis un live USB, en gérant automatiquement les configurations complexes.
 
-## ✨ Fonctionnalités
+## Fonctionnalités
 
-### 🎯 Support Complet des Configurations
+### Support Complet des Configurations
 - **Systèmes de fichiers classiques** : ext4, xfs, f2fs
 - **Btrfs avancé** : Détection automatique des sous-volumes
 - **Chiffrement LUKS** : Déverrouillage automatique des volumes chiffrés
 - **Configurations hybrides** : Btrfs + LUKS, multi-partitions, etc.
 
-### 🤖 Automatisation Intelligente
+### Automatisation Intelligente
 - **Service systemd** : Génération automatique à l'extinction du système
 - **Analyse en temps réel** : Parse `/etc/fstab` et détecte la configuration matérielle
 - **Gestion d'erreurs robuste** : Vérifications et fallbacks intelligents
 - **Nettoyage automatique** : Démontage propre en cas d'interruption
 
-### 🛡️ Sécurité et Robustesse
+### Sécurité et Robustesse
 - **Vérification des périphériques** : S'assure de l'existence des volumes avant montage
 - **Gestion des permissions** : Contrôles de sécurité intégrés
 - **Sauvegarde automatique** : Conserve les anciens scripts
 - **Logs détaillés** : Traçabilité complète des opérations
 
-## 📦 Installation
+## Installation
 
 ### Depuis l'AUR (à venir)
 ```bash
@@ -47,7 +47,7 @@ cd auto-archchroot
 makepkg -si
 ```
 
-## 🚀 Utilisation
+## Utilisation
 
 ### Activation du Service Automatique
 ```bash
@@ -96,7 +96,7 @@ UUID=boot-uuid-here /boot ext4 defaults 0 2
 UUID=efi-uuid-here /boot/efi vfat defaults 0 2
 ```
 
-## ⚙️ Configuration
+## Configuration
 
 Le fichier de configuration principal se trouve dans `/etc/auto-archchroot/config.conf` :
 
@@ -122,7 +122,7 @@ auto_cleanup = true
 copy_resolv_conf = true
 ```
 
-## 🔧 Script Généré
+## Script Généré
 
 Le script `perform-chroot.sh` généré inclut :
 
@@ -153,7 +153,7 @@ mount --bind /run /mnt/run
 arch-chroot /mnt
 ```
 
-## 🐛 Dépannage
+## Dépannage
 
 ### Problèmes Courants
 
@@ -201,7 +201,7 @@ sudo auto-archchroot --debug
 ```
 
 
-## 🤝 Contribution
+## Contribution
 
 Les contributions sont les bienvenues ! Merci de :
 
@@ -218,7 +218,7 @@ Avant de soumettre, assurez-vous que :
 - [ ] La documentation est à jour
 - [ ] Les logs sont appropriés
 
-## 📄 Licence
+## Licence
 
 Ce projet est sous licence GPL v3. Voir le fichier [LICENSE](LICENSE) pour plus de détails.
 
@@ -229,7 +229,7 @@ Ce projet est sous licence GPL v3. Voir le fichier [LICENSE](LICENSE) pour plus 
 - **Développeurs systemd** pour les services robustes
 - **Contributeurs** qui améliorent ce projet
 
-## 📞 Support
+## Support
 
 - **Issues GitHub** : [Signaler un bug](https://github.com/madptitprince/auto-archchroot/issues)
 - **Discussions** : [Forum Arch](https://bbs.archlinux.org/)
