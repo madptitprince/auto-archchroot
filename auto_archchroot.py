@@ -34,6 +34,20 @@ def setup_logging():
             handlers=[logging.StreamHandler()]
         )
 
+@dataclass
+class MountPoint:
+    """Point de montage"""
+    device: str
+    mount_point: str
+    fs_type: str
+    options: List[str] = field(default_factory=list)
+    uuid: Optional[str] = None
+    is_luks: bool = False
+    luks_device: Optional[str] = None
+    btrfs_subvol: Optional[str] = None
+    order: int = 0
+
+
 setup_logging()
 logger = logging.getLogger(__name__)
 class SystemAnalyzer:
@@ -166,6 +180,7 @@ class SystemAnalyzer:
         output, code = self.run_command(luks_cmd)
         
         if code != 0 or 'is active' not in output:
+            
             return False, None, None
         
         match = re.search(r'device:\s+(/dev/\S+)', output)
@@ -195,3 +210,172 @@ class SystemAnalyzer:
                 return opt[7:]
         return None
     
+    def _parse_fstab_line(self, line: str, line_num: int) -> Optional[Tuple[str, str, str, List[str]]]:
+        """
+        Parse une ligne fstab et retourne (device, mount_point, fs_type, options)
+        Args:
+            line: Ligne à parser
+            line_num: Numéro de ligne pour les messages d'erreur  
+        Returns:
+            Tuple (device, mount_point, fs_type, options) ou None si ligne invalide
+        """
+        line = line.strip()
+        # Ignore empty lines and comments
+        if not line or line.startswith('#'):
+            return None
+        parts = line.split()
+        if len(parts) < 4:
+            logger.warning(f"Ligne fstab invalide {line_num}: {line}")
+            return None
+        device = parts[0]
+        mount_point = parts[1]
+        fs_type = parts[2]
+        options = parts[3].split(',')
+        
+        # Valide les champs critiques
+        if not self._is_valid_fstab_entry(device, mount_point, fs_type):
+            return None
+        
+        return device, mount_point, fs_type, options
+    
+    def _is_valid_fstab_entry(self, device: str, mount_point: str, fs_type: str) -> bool:
+        """
+        Valide une entrée fstab
+        Args:
+            device: Périphérique source
+            mount_point: Point de montage
+            fs_type: Type de système de fichiers
+        Returns:
+            True si l'entrée est valide pour notre usage
+        """
+        #skip special mount points
+        if mount_point in ['none', 'swap'] or fs_type in ['swap', 'tmpfs', 'proc', 'sysfs', 'devtmpfs']:
+            return False
+        
+        #tmp and virtual
+        if fs_type in ['cgroup', 'cgroup2', 'securityfs', 'debugfs', 'configfs']:
+            return False
+
+        valid_device_prefixes = ['UUID=', 'LABEL=', '/dev/', 'PARTUUID=', 'PARTLABEL=']
+        if not any(device.startswith(prefix) for prefix in valid_device_prefixes):
+            logger.warning(f"Format de périphérique non supporté: {device}")
+            return False
+        
+        return True
+    
+    def _create_mount_point(self, device: str, mount_point: str, fs_type: str, 
+                          options: List[str], device_info: Dict[str, Dict], 
+                          luks_devices: Dict[str, str]) -> MountPoint:
+        """
+        Crée un objet MountPoint à partir des informations parsées
+        Args:
+            device: Périphérique source
+            mount_point: Point de montage
+            fs_type: Type de système de fichiers
+            options: Options de montage
+            device_info: Informations sur les périphériques
+            luks_devices: Mapping des périphériques LUKS
+        Returns:
+            Objet MountPoint configuré
+        """
+        mp = MountPoint(
+            device=device,
+            mount_point=mount_point,
+            fs_type=fs_type,
+            options=options,
+            order=self._get_mount_order(mount_point)
+        )
+        
+        #uuid handling
+        if device.startswith('UUID='):
+            uuid = device[5:]
+            mp.uuid = uuid
+            #uuid to device res
+            resolved_device = self._resolve_device_uuid(uuid, device_info)
+            if resolved_device:
+                mp.device = resolved_device
+            #luks check
+            is_luks, luks_device = self._detect_luks_for_uuid(uuid, luks_devices)
+            if is_luks:
+                mp.is_luks = True
+                mp.luks_device = luks_device
+        #/dev/mapper/ handling
+        elif device.startswith('/dev/mapper/'):
+            is_luks, luks_device, uuid = self._detect_luks_for_mapper(device)
+            if is_luks:
+                mp.is_luks = True
+                mp.luks_device = luks_device
+                if uuid:
+                    mp.uuid = uuid
+        #btrfs handling
+        if fs_type == 'btrfs':
+            subvol = self._extract_btrfs_subvolume(options)
+            if subvol:
+                mp.btrfs_subvol = subvol
+        return mp
+    
+    def parse_fstab(self, fstab_path: str = "/etc/fstab") -> List[MountPoint]:
+        """
+        Parse le fichier fstab et crée la liste des points de montage
+        Args:
+            fstab_path: Chemin vers le fichier fstab
+        Returns:
+            Liste des points de montage triée par ordre de montage
+        Raises:
+            FileNotFoundError: Si le fichier fstab n'existe pas
+            PermissionError: Si le fichier n'est pas accessible
+        """
+
+        if not os.path.exists(fstab_path):
+            raise FileNotFoundError(f"Fichier fstab non trouvé: {fstab_path}")
+    
+        mount_points = []
+        #get sys info
+        try:
+            device_info = self.get_device_info()
+            luks_devices = self.detect_luks_devices()
+        except Exception as e:
+            logger.error(f"Erreur lors de la récupération des informations système: {e}")
+            device_info = {}
+            luks_devices = {}
+        #fstab parsing
+        try:
+            with open(fstab_path, 'r', encoding='utf-8') as f:
+                for line_num, line in enumerate(f, 1):
+                    parsed = self._parse_fstab_line(line, line_num)
+                    if parsed is None:
+                        continue
+                    device, mount_point, fs_type, options = parsed
+                    try:
+                        mp = self._create_mount_point(
+                            device, mount_point, fs_type, options, 
+                            device_info, luks_devices
+                        )
+                        mount_points.append(mp)
+                        logger.info(f"Point de montage trouvé: {mp.mount_point} ({mp.device})")
+                    except Exception as e:
+                        logger.error(f"Erreur lors du traitement de la ligne {line_num}: {e}")
+                        continue
+        except Exception as e:
+            logger.error(f"Erreur lors de la lecture de {fstab_path}: {e}")
+            raise
+        #sort mp by order
+        mount_points.sort(key=lambda x: x.order)
+        return mount_points
+
+    def _get_mount_order(self, mount_point: str) -> int:
+        """Détermine l'ordre de montage basé sur la hiérarchie des points de montage"""
+        order_map = {
+            '/': 0,
+            '/boot': 10,
+            '/boot/efi': 11,
+            '/home': 20,
+            '/var': 21,
+            '/usr': 22,
+            '/opt': 23,
+            '/tmp': 24
+        }
+        if mount_point in order_map:
+            return order_map[mount_point]
+        #for custom mount points, heuristic on depth
+        return 30 + len(mount_point.split('/'))
