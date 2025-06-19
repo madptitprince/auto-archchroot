@@ -263,6 +263,22 @@ class SystemAnalyzer:
         
         return True
     
+    def _resolve_device_uuid(self, uuid: str, device_info: Dict[str, Dict]) -> Optional[str]:
+        """
+        Résout un UUID vers un chemin de périphérique
+        
+        Args:
+            uuid: UUID à résoudre
+            device_info: Informations sur les périphériques
+            
+        Returns:
+            Chemin du périphérique ou None si non trouvé
+        """
+        for dev_path, dev_info in device_info.items():
+            if dev_info.get('uuid') == uuid:
+                return dev_path
+        return None
+
     def _create_mount_point(self, device: str, mount_point: str, fs_type: str, 
                           options: List[str], device_info: Dict[str, Dict], 
                           luks_devices: Dict[str, str]) -> MountPoint:
