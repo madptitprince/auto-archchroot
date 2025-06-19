@@ -1,0 +1,137 @@
+.TH AUTO-ARCHCHROOT 8 "Juin 2025" "auto-archchroot 1.0.0" "Commandes système"
+.SH NOM
+auto-archchroot \- Générateur automatique de script de chroot pour Arch Linux
+.SH SYNOPSIS
+.B auto-archchroot
+[\fB\-h\fR|\fB\-\-help\fR]
+[\fB\-v\fR|\fB\-\-version\fR]
+[\fB\-d\fR|\fB\-\-debug\fR]
+[\fB\-c\fR \fICONFIG\fR|\fB\-\-config\fR=\fICONFIG\fR]
+[\fB\-o\fR \fIOUTPUT\fR|\fB\-\-output\fR=\fIOUTPUT\fR]
+
+.SH DESCRIPTION
+.B auto-archchroot
+analyse automatiquement la configuration système actuelle et génère un script
+.B perform-chroot.sh
+permettant de reproduire facilement un
+.B arch-chroot
+depuis un live USB en cas de problème. Ce script gère automatiquement les configurations complexes comme le chiffrement LUKS, les sous-volumes Btrfs et les configurations multi-partitions.
+
+.SH OPTIONS
+.TP
+.BR \-h ", " \-\-help
+Affiche l'aide et quitte.
+.TP
+.BR \-v ", " \-\-version
+Affiche la version et quitte.
+.TP
+.BR \-d ", " \-\-debug
+Active le mode debug avec logs détaillés.
+.TP
+.BR \-c ", " \-\-config =\fICONFIG
+Spécifie un fichier de configuration alternatif (par défaut: /etc/auto-archchroot/config.conf).
+.TP
+.BR \-o ", " \-\-output =\fIOUTPUT
+Spécifie un chemin de sortie alternatif pour le script (par défaut: /usr/local/bin/perform-chroot.sh).
+
+.SH FICHIERS
+.TP
+.I /etc/auto-archchroot/config.conf
+Fichier de configuration principal.
+.TP
+.I /usr/local/bin/perform-chroot.sh
+Script de chroot généré par défaut.
+.TP
+.I /var/log/auto-archchroot.log
+Fichier de journalisation.
+
+.SH SERVICE SYSTEMD
+.B auto-archchroot.service
+est un service systemd qui génère automatiquement le script
+.B perform-chroot.sh
+à l'arrêt du système pour garantir qu'il correspond toujours à la configuration la plus récente.
+
+Pour activer ce service:
+.PP
+.nf
+.RS
+sudo systemctl enable auto-archchroot.service
+.RE
+.fi
+
+.SH UTILISATION MANUELLE
+Pour générer manuellement le script:
+.PP
+.nf
+.RS
+sudo auto-archchroot
+.RE
+.fi
+
+.SH UTILISATION DU SCRIPT GÉNÉRÉ
+Depuis un live USB Arch Linux:
+.PP
+.nf
+.RS
+sudo /chemin/vers/perform-chroot.sh
+.RE
+.fi
+
+.SH CONFIGURATIONS SUPPORTÉES
+.TP
+.B Systèmes de fichiers
+ext4, btrfs, xfs, f2fs
+.TP
+.B Configurations avancées
+Sous-volumes Btrfs, chiffrement LUKS, configurations hybrides (Btrfs + LUKS)
+
+.SH DÉPANNAGE
+En cas de problème, consultez les logs:
+.PP
+.nf
+.RS
+sudo journalctl -u auto-archchroot.service
+cat /var/log/auto-archchroot.log
+.RE
+.fi
+
+.SH EXEMPLES
+.TP
+Générer avec mode debug:
+.PP
+.nf
+.RS
+sudo auto-archchroot --debug
+.RE
+.fi
+.TP
+Utiliser un fichier de configuration alternatif:
+.PP
+.nf
+.RS
+sudo auto-archchroot --config=/chemin/alternatif/config.conf
+.RE
+.fi
+.TP
+Générer le script dans un emplacement spécifique:
+.PP
+.nf
+.RS
+sudo auto-archchroot --output=/chemin/custom/perform-chroot.sh
+.RE
+.fi
+
+.SH VOIR AUSSI
+.BR arch-chroot (8),
+.BR cryptsetup (8),
+.BR btrfs (8),
+.BR systemd (1)
+
+.SH BUGS
+Signaler les bugs sur https://github.com/madptitprince/auto-archchroot/issues
+
+.SH AUTEUR
+Groupe de 4 STI 3A 2025 <amadou.diack@insa-cvl.fr>,<ahmad.saad@insa-cvl.fr>,<ali.terro@insa-cvl.fr>,<>
+
+.SH LICENCE
+Ce programme est sous licence GPL v3.
