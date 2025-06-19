@@ -53,7 +53,7 @@ post_install() {
     echo "  sudo auto-archchroot"
     echo ""
     echo "Le script généré sera disponible à:"
-    echo "  /usr/local/bin/perform-chroot.sh"
+    echo "  /home/perform-chroot.sh"
     echo ""
     echo "Configuration disponible dans:"
     echo "  /etc/auto-archchroot/config.conf"
@@ -85,6 +85,6 @@ post_remove() {
     echo ""
     echo "Les fichiers suivants ont été conservés et peuvent être supprimés manuellement:"
     echo "  /var/log/auto-archchroot.log"
-    echo "  /usr/local/bin/perform-chroot.sh (script généré)"
+    echo "  /home/perform-chroot.sh (script généré)"
     echo "  /etc/auto-archchroot/ (configuration personnalisée)"
 }

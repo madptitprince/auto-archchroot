@@ -385,7 +385,7 @@ class ScriptGenerator:
         self.mount_points = mount_points
         self.script_lines = []
     
-    def generate_script(self, output_path: str = "/usr/local/bin/perform-chroot.sh"):
+    def generate_script(self, output_path: str = "/home/perform-chroot.sh"):
         """Génère le script complet"""
         self.script_lines = []        
         self._add_header()        
