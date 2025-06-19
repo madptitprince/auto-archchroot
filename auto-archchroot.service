@@ -1,0 +1,29 @@
+[Unit]
+Description=Auto Arch-Chroot Script Generator
+Documentation=man:auto-archchroot(8)
+DefaultDependencies=false
+Before=shutdown.target reboot.target halt.target poweroff.target
+After=multi-user.target local-fs.target
+Conflicts=rescue.target emergency.target
+RequiresMountsFor=/etc /usr/local/bin
+Requisite=local-fs.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=true
+ExecStart=/usr/bin/python3 /usr/local/bin/auto_archchroot.py
+ExecStop=/usr/bin/python3 /usr/local/bin/auto_archchroot.py
+TimeoutStopSec=90
+KillMode=mixed
+KillSignal=SIGTERM
+SendSIGKILL=no
+User=root
+Group=root
+SupplementaryGroups=disk
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=PYTHONPATH=/usr/local/lib/python3.11/site-packages
+Environment=SYSTEMD_LOG_LEVEL=info
+
+[Install]
+WantedBy=multi-user.target
+WantedBy=shutdown.target
