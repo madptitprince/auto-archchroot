@@ -1,0 +1,9 @@
+# /etc/fstab: static file system information.
+#
+# <file system>             <mount point>     <type>     <options>       <dump>  <pass>
+
+# Partition principale LUKS + BTRFS
+UUID=1234-5678              /                 btrfs      subvol=@root    0       0
+
+# Partition /home LUKS + BTRFS
+UUID=abcd-1234              /home             btrfs      subvol=@home    0       0

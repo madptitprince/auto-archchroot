@@ -1,0 +1,6 @@
+# /etc/fstab: static file system information.
+#
+# <file system>             <mount point>     <type>    <options>       <dump>  <pass>
+
+# Le périphérique est déchiffré via cryptsetup
+/dev/mapper/luks-1234       /         ext4      noatime       0       1

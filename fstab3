@@ -1,0 +1,6 @@
+# /etc/fstab: static file system information.
+#
+# <file system>             <mount point>     <type>   <options>       <dump>  <pass>
+
+# Partition BTRFS avec sous-volumes
+/dev/sda1                   /home             btrfs    subvol=@home    0       0
