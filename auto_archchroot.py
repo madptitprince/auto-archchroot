@@ -69,7 +69,6 @@ class SystemAnalyzer:
     def get_device_info(self) -> Dict[str, Dict]:
         """Récupère les informations sur tous les périphériques de stockage"""
         devices = {}
-        
         cmd = ['lsblk', '-J', '-o', 'NAME,UUID,FSTYPE,MOUNTPOINT,SIZE,TYPE']
         output, code = self.run_command(cmd)
         
@@ -80,14 +79,12 @@ class SystemAnalyzer:
                     self._process_device(device, devices)
             except json.JSONDecodeError as e:
                 logger.error(f"Erreur parsing JSON lsblk: {e}")
-        
         return devices
     
     def _process_device(self, device: dict, devices: dict, parent_name: str = ""):
         """Traite récursivement les informations d'un périphérique"""
         name = device.get('name', '')
         full_name = f"/dev/{name}"
-        
         devices[full_name] = {
             'uuid': device.get('uuid'),
             'fstype': device.get('fstype'),
@@ -95,14 +92,12 @@ class SystemAnalyzer:
             'size': device.get('size'),
             'type': device.get('type')
         }
-        
         for child in device.get('children', []):
             self._process_device(child, devices, name)
     
     def detect_luks_devices(self) -> Dict[str, str]:
         """Détecte les périphériques LUKS et leurs mappings"""
         luks_devices = {}
-        
         cmd = ['blkid', '-t', 'TYPE=crypto_LUKS']
         output, code = self.run_command(cmd)
         
@@ -120,10 +115,8 @@ class SystemAnalyzer:
     def detect_btrfs_subvolumes(self, device: str) -> List[str]:
         """Détecte les sous-volumes btrfs sur un périphérique"""
         subvolumes = []
-        
         temp_mount = "/tmp/btrfs_temp_mount"
         os.makedirs(temp_mount, exist_ok=True)
-        
         try:
             mount_cmd = ['mount', device, temp_mount]
             _, code = self.run_command(mount_cmd)
@@ -140,24 +133,21 @@ class SystemAnalyzer:
                                 subvol_path = match.group(1)
                                 subvolumes.append(subvol_path)
                                 logger.info(f"Sous-volume btrfs trouvé: {subvol_path}")
-        
         finally:
             self.run_command(['umount', temp_mount])
             try:
                 os.rmdir(temp_mount)
             except:
                 pass
-        
+
         return subvolumes
     
     def _detect_luks_for_uuid(self, uuid: str, luks_devices: Dict[str, str]) -> Tuple[bool, Optional[str]]:
         """
         Détecte si un UUID correspond à un périphérique LUKS
-        
         Args:
             uuid: UUID à vérifier
             luks_devices: Mapping des UUIDs LUKS
-            
         Returns:
             Tuple (is_luks, luks_device_path)
         """
@@ -168,10 +158,8 @@ class SystemAnalyzer:
     def _detect_luks_for_mapper(self, device: str) -> Tuple[bool, Optional[str], Optional[str]]:
         """
         Détecte les informations LUKS pour un périphérique /dev/mapper/
-        
         Args:
             device: Chemin du périphérique mapper
-            
         Returns:
             Tuple (is_luks, luks_device_path, uuid)
         """
@@ -180,15 +168,12 @@ class SystemAnalyzer:
         output, code = self.run_command(luks_cmd)
         
         if code != 0 or 'is active' not in output:
-            
             return False, None, None
-        
         match = re.search(r'device:\s+(/dev/\S+)', output)
         if not match:
             return True, None, None
-        
+
         luks_device = match.group(1)
-        
         uuid_cmd = ['blkid', '-o', 'value', '-s', 'UUID', luks_device]
         uuid_output, uuid_code = self.run_command(uuid_cmd)
         uuid = uuid_output.strip() if uuid_code == 0 and uuid_output else None
@@ -198,10 +183,8 @@ class SystemAnalyzer:
     def _extract_btrfs_subvolume(self, options: List[str]) -> Optional[str]:
         """
         Extrait le nom du sous-volume btrfs des options de montage
-        
         Args:
             options: Liste des options de montage
-            
         Returns:
             Nom du sous-volume ou None
         """
